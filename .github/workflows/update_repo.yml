@@ -1,46 +1,38 @@
-# Release script for Alfa Addon 
-name: update
+name: Update add-on repository
 
 on:
+  repository_dispatch:
+    types: [update-repo]
   workflow_dispatch:
 
-# Set permissions for GitHub key
 permissions: write-all
 
+env:
+  GIT_USER_NAME: Alfa Development Group
+  GIT_USER_EMAIL: 145614550+alfa-add-on@users.noreply.github.com
+
 jobs:
-  deploy:
+  update-repo:
     name: Update repository
     runs-on: ubuntu-latest
 
-    env:
-      GIT_USER_NAME: Alfa
-      GIT_USER_EMAIL: alfa-add-on@users.noreply.github.com
-
     steps:
-      - name: Configure Python 3.8 
-        uses: actions/setup-python@v2
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.8'
 
-      - name: Checkout repo
-        uses: actions/checkout@v2
+      - name: Install Python requirements
+        run: pip install -r requirements-ci.txt
 
-      - name: Set-up environment
+      - name: Download repository dispatch ZIP
+        if: github.event_name == 'repository_dispatch'
         run: |
-          git config --global user.name "[CI] Alfa"
-          git config --global user.email "alfa-add-on@users.noreply.github.com"
+          mkdir -p "${{ github.event.client_payload.addon_id }}"
+          filename=$(basename "${{ github.event.client_payload.url }}")
+          curl -L "${{ github.event.client_payload.url }}" -o "${{ github.event.client_payload.addon_id }}/$filename"
 
-      - name: Start update
+      - name: Generate repo
+        working-directory: ${{ github.workspace }}
         run: |
-          # Updating
-          echo "Entering Git repo directory"
-          cd ${{ github.workspace }}
-          echo "pip-installing lxml"
-          pip install lxml
-          echo "Updating repository"
-          python repo_prep.py
-          echo "Commiting..."
-          git add .
-          git commit -m "Updated addons.xml, addons.xml.md5"
-          git push
-          echo "Update finished!"
+          sh gen_repo.sh
